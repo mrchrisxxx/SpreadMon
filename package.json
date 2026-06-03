@@ -1,0 +1,13 @@
+{
+  "name": "reku-orderbook-dashboard",
+  "version": "2.0.0",
+  "private": false,
+  "description": "REKU Live Order Book Dashboard — compare REKU IDR order books against Binance/Gate USDT.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

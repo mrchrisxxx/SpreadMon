@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>REKU Live Order Book Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+
+      <!--
+        NEW LAYOUT:
+        .app-shell  →  flex-column
+          .topbar
+          .main-body  →  flex-row  (fills remaining height)
+            .left-cols  →  flex-row  (3 panels, each flex:1)
+              .control-panel
+              .book-panel  (reku)
+              .book-panel  (target)
+            .asset-drawer  →  fixed width, full height, no inner box appearance
+      -->
+
+      <!-- ── Top Bar ── -->
+      <header class="topbar">
+        <div class="title-group">
+          <a href="https://reku.id" target="_blank" rel="noopener" class="logo-link">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Reku_logo.svg/512px-Reku_logo.svg.png"
+              alt="REKU"
+              class="header-logo"
+              onerror="this.onerror=null;this.src='https://reku.id/favicon.ico';this.style.borderRadius='4px';"
+            />
+          </a>
+          <h1>Live Order Book &mdash; <span id="chosenAssetTitle">BTC</span></h1>
+        </div>
+        <!-- status strip moved here, above the asset drawer column -->
+        <div class="status-strip">
+          <span id="connectionStatus" class="status-pill">Connecting</span>
+          <button id="refreshButton" type="button" class="icon-button">&#8635; Refresh</button>
+          <button id="themeToggle"   type="button" class="icon-button">&#9790; Dark</button>
+        </div>
+      </header>
+
+      <!-- ── Body: left-cols + asset-drawer ── -->
+      <div class="main-body">
+
+        <!-- Three equal-width panels -->
+        <div class="left-cols">
+
+          <!-- ── Control Panel ── -->
+          <section class="control-panel panel" aria-label="Control panel">
+            <div class="panel-title">REKU Order Book Checker</div>
+
+            <div class="form-section">
+              <div class="section-label">Market Reference</div>
+              <div class="form-grid">
+                <label>
+                  <span>Rate System</span>
+                  <div class="rate-spinner">
+                    <button type="button" id="rateDown" class="spin-btn" aria-label="Decrease">&#8722;</button>
+                    <input id="rateSystem" type="text" inputmode="numeric" value="17.750" />
+                    <button type="button" id="rateUp"   class="spin-btn" aria-label="Increase">&#43;</button>
+                  </div>
+                </label>
+                <label>
+                  <span>Target Exchange</span>
+                  <select id="targetExchange">
+                    <option value="binance">Binance</option>
+                    <option value="gate">Gate</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Best Ask Target</span>
+                  <output id="bestAskTarget">-</output>
+                </label>
+                <label>
+                  <span>Tick Size</span>
+                  <output id="tickSize">-</output>
+                </label>
+                <label>
+                  <span>Default Best Bid<br><small>(Diff 0%)</small></span>
+                  <output id="defaultPrice">-</output>
+                </label>
+                <label>
+                  <span>Diff</span>
+                  <output id="diffPerTick">-</output>
+                </label>
+                <label>
+                  <span>Current Diff</span>
+                  <output id="currentDiffPerTick">-</output>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="section-label">Simulation</div>
+              <div class="form-grid">
+                <label>
+                  <span>User Taker Side</span>
+                  <select id="takerSide">
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Value In</span>
+                  <select id="valueIn">
+                    <option value="idr">IDR</option>
+                    <option value="asset">Asset</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Amount</span>
+                  <input id="tradeAmount" type="text" inputmode="decimal" value="10.000.000" />
+                </label>
+              </div>
+              <div class="metric-list">
+                <div class="metric-row"><span>% Price Impact</span><strong id="priceImpact">-</strong></div>
+                <div class="metric-row"><span>Price Change</span><strong id="priceChange">-</strong></div>
+                <div class="metric-row"><span>VWAP</span><strong id="vwap">-</strong></div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="section-label">Order Book Summary</div>
+              <div class="side-summary">
+                <div class="summary-block">
+                  <div class="summary-header ask-label">ASK</div>
+                  <div class="metric-row"><span>Maximum Price</span><strong id="askMaxPrice">-</strong></div>
+                  <div class="metric-row"><span>Total Volume (Asset)</span><strong id="askTotalAsset">-</strong></div>
+                  <div class="metric-row"><span>Total Volume (IDR)</span><strong id="askTotalIdr">-</strong></div>
+                </div>
+                <div class="summary-block">
+                  <div class="summary-header bid-label">BID</div>
+                  <div class="metric-row"><span>Minimum Price</span><strong id="bidMinPrice">-</strong></div>
+                  <div class="metric-row"><span>Total Volume (Asset)</span><strong id="bidTotalAsset">-</strong></div>
+                  <div class="metric-row"><span>Total Volume (IDR)</span><strong id="bidTotalIdr">-</strong></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── REKU Order Book ── -->
+          <article id="rekuPanel" class="book-panel panel" aria-label="REKU Order Book">
+            <div class="book-panel-header">
+              <span class="book-exch">REKU</span>
+              <span class="book-label">Order Book</span>
+              <span id="rekuLevelCount" class="book-badge"></span>
+            </div>
+            <div class="book-side-label ask">ASK</div>
+            <div class="book-table-wrap ask-wrap" id="rekuAskWrap">
+              <table>
+                <colgroup><col class="col-num"><col class="col-price"><col class="col-amt"><col class="col-vol"></colgroup>
+                <thead><tr><th>#</th><th>Price (IDR)</th><th>Amount</th><th>Volume (IDR)</th></tr></thead>
+                <tbody id="rekuAsks"></tbody>
+              </table>
+            </div>
+            <div class="book-side-label bid">BID</div>
+            <div class="book-table-wrap bid-wrap" id="rekuBidWrap">
+              <table>
+                <colgroup><col class="col-num"><col class="col-price"><col class="col-amt"><col class="col-vol"></colgroup>
+                <thead><tr><th>#</th><th>Price (IDR)</th><th>Amount</th><th>Volume (IDR)</th></tr></thead>
+                <tbody id="rekuBids"></tbody>
+              </table>
+            </div>
+            <div id="rekuMeta" class="book-meta"></div>
+          </article>
+
+          <!-- ── Target Exchange Order Book ── -->
+          <article id="targetPanel" class="book-panel panel" aria-label="Target Order Book">
+            <div class="book-panel-header">
+              <span id="targetExchangeName" class="book-exch">BINANCE</span>
+              <span class="book-label">Order Book</span>
+              <span id="targetLevelCount" class="book-badge"></span>
+            </div>
+            <div class="book-side-label ask">ASK</div>
+            <div class="book-table-wrap ask-wrap" id="targetAskWrap">
+              <table>
+                <colgroup><col class="col-num"><col class="col-price"><col class="col-amt"><col class="col-vol"></colgroup>
+                <thead><tr><th>#</th><th>Price (USDT)</th><th>Amount</th><th>Volume (USDT)</th></tr></thead>
+                <tbody id="targetAsks"></tbody>
+              </table>
+            </div>
+            <div class="book-side-label bid">BID</div>
+            <div class="book-table-wrap bid-wrap" id="targetBidWrap">
+              <table>
+                <colgroup><col class="col-num"><col class="col-price"><col class="col-amt"><col class="col-vol"></colgroup>
+                <thead><tr><th>#</th><th>Price (USDT)</th><th>Amount</th><th>Volume (USDT)</th></tr></thead>
+                <tbody id="targetBids"></tbody>
+              </table>
+            </div>
+            <div id="targetMeta" class="book-meta"></div>
+          </article>
+
+        </div><!-- /.left-cols -->
+
+        <!-- ── Asset Drawer — full height right column, flush to edges ── -->
+        <aside class="asset-drawer" aria-label="Asset selector">
+          <div class="asset-drawer-header">
+            <strong>Asset List</strong>
+            <input id="assetSearch" type="search" placeholder="Search…" />
+          </div>
+          <div class="asset-list-head">
+            <span>Asset</span>
+            <span>Spread</span>
+            <span>Curr. Diff</span>
+          </div>
+          <div id="assetList" class="asset-list"></div>
+          <div class="asset-drawer-footer">Treasury Division Production</div>
+        </aside>
+
+      </div><!-- /.main-body -->
+    </div><!-- /.app-shell -->
+
+    <div id="levelTooltip" class="level-tooltip" hidden></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
